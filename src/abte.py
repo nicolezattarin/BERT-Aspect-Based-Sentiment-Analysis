@@ -95,11 +95,11 @@ class ABTEModel ():
         
         self.model = self.model.to(device)
         optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
+        self.losses = []
 
         all_data = len(loader)-1
         for epoch in range(epochs):
             finish_data = 0
-            self.losses = []
             current_times = []
 
             n_batches = int(len(data)/batch_size)
@@ -123,7 +123,7 @@ class ABTEModel ():
                 current_times.append(current_time)
                 print("epoch: {}\tbatch: {}/{}\tloss: {}\tbatch time: {}\ttotal time: {}"\
                     .format(epoch, finish_data, all_data, loss.item(), current_time, sum(current_times)))
-                np.savetxt('losses_lr{}_epochs{}_batch{}.txt', self.losses)
+                np.savetxt('losses_lr{}_epochs{}_batch{}.txt'.format(lr, epochs, batch_size), self.losses)
 
             self.save_model(self.model, 'model_lr{}_epochs{}_batch{}.pkl'.format(lr, epoch, batch_size))
             self.trained = True
