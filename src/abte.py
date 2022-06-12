@@ -7,7 +7,7 @@ from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 import os,sys
 
-class ATEDataset(Dataset):
+class ABTEDataset(Dataset):
     def __init__(self, df, tokenizer):
         self.df = df
         self.tokenizer = tokenizer
@@ -38,9 +38,9 @@ class ATEDataset(Dataset):
     def __len__(self):
         return len(self.df)
 
-class ATEBert(torch.nn.Module):
+class ABTEBert(torch.nn.Module):
     def __init__(self, pretrain_model):
-        super(ATEBert, self).__init__()
+        super(ABTEBert, self).__init__()
         self.bert = BertModel.from_pretrained(pretrain_model)
         self.linear = torch.nn.Linear(self.bert.config.hidden_size, 3)
         self.loss_fn = torch.nn.CrossEntropyLoss()
@@ -58,13 +58,13 @@ class ATEBert(torch.nn.Module):
         else:
             return linear_outputs
 
-class ATEModel ():
+class ABTEModel ():
     def __init__(self, tokenizer):
-        self.model = ATEBert('bert-base-uncased')
+        self.model = ABTEBert('bert-base-uncased')
         self.tokenizer = tokenizer
         self.trained = False
 
-    def create_mini_batch(self, samples):
+    def padding(self, samples):
         from torch.nn.utils.rnn import pad_sequence
         ids_tensors = [s[1] for s in samples]
         ids_tensors = pad_sequence(ids_tensors, batch_first=True)
@@ -85,12 +85,13 @@ class ATEModel ():
         
     def save_model(self, model, name):
         torch.save(model.state_dict(), name)        
+                
 
     def train(self, data, epochs, device, batch_size=32, lr=1e-5):
 
         # dataset and loader
-        ds = ATEDataset(data, self.tokenizer)
-        loader = DataLoader(ds, batch_size=batch_size, shuffle=True, collate_fn=self.create_mini_batch)
+        ds = ABTEDataset(data, self.tokenizer)
+        loader = DataLoader(ds, batch_size=batch_size, shuffle=True, collate_fn=self.padding)
         
         self.model = self.model.to(device)
         optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
@@ -122,6 +123,7 @@ class ATEModel ():
                 current_times.append(current_time)
                 print("epoch: {}\tbatch: {}/{}\tloss: {}\tbatch time: {}\ttotal time: {}"\
                     .format(epoch, finish_data, all_data, loss.item(), current_time, sum(current_times)))
+                np.savetxt('losses_lr{}_epochs{}_batch{}.txt', self.losses)
 
             self.save_model(self.model, 'model_lr{}_epochs{}_batch{}.pkl'.format(lr, epoch, batch_size))
             self.trained = True
@@ -132,38 +134,63 @@ class ATEModel ():
         else:
             raise Exception('Model not trained')
 
-    def test(self, data, device='cpu', batch_size=32, lr=1e-4, epochs=2):
+    def unpack_sequence(self, packed_sequence, mask):
+        unpacked_sequence = []
+        for i in range(len(packed_sequence)):
+            if mask[i] == 1:
+                unpacked_sequence.append(packed_sequence[i])
+    
+        return unpacked_sequence
+
+    def predict(self, sentence, device='cpu', batch_size=256, lr=1e-4, epochs=2):
+         # load model if exists
+        if os.path.exists('model_lr{}_epochs{}_batch{}.pkl'.format(lr, epochs, batch_size)):
+            self.load_model(self.model, 'model_lr{}_epochs{}_batch{}.pkl'.format(lr, epochs, batch_size))
+        if not self.trained and not os.path.exists('model_lr{}_epochs{}_batch{}.pkl'.format(lr, epochs, batch_size)):
+            raise Exception('model not trained and does not exist')
+
+        word_pieces = []
+        tokens = self.tokenizer.tokenize(sentence)
+        word_pieces += tokens
+
+        ids = self.tokenizer.convert_tokens_to_ids(word_pieces)
+        input_tensor = torch.tensor([ids]).to(device)
+
+        with torch.no_grad():
+            outputs = self.model(input_tensor, None, None)
+            _, predictions = torch.max(outputs, dim=2)
+        predictions = predictions[0].tolist()
+
+        return word_pieces, predictions, outputs
+
+    def _accuracy (self, x,y):
+        acc = 0
+        for i in range(len(x)):
+            if x[i] == y[i]:
+                acc += 1
+        return acc/len(x)
+
+    def test(self, data, device='cpu', batch_size=256, lr=1e-4, epochs=2):
         
-        ds = ATEDataset(data, self.tokenizer)
-        loader = DataLoader(ds, shuffle=True,collate_fn=self.create_mini_batch, batch_size =  len(data))
-        pred = []
-        trueth = []
-        ids, tags, pols, masks = next(iter(loader))
-        ids_tensors = torch.tensor(ids)
-        tags_tensors = torch.tensor(tags)
-        masks_tensors = torch.tensor(masks)
-        
+        tags_real = [t.strip('][').split(', ') for t in data['Tags']]
+        tags_real = [[int(i) for i in t] for t in tags_real]
+
         # load model if exists
         if os.path.exists('model_lr{}_epochs{}_batch{}.pkl'.format(lr, epochs, batch_size)):
             self.load_model(self.model, 'model_lr{}_epochs{}_batch{}.pkl'.format(lr, epochs, batch_size))
         if not self.trained and not os.path.exists('model_lr{}_epochs{}_batch{}.pkl'.format(lr, epochs, batch_size)):
             raise Exception('model not trained and does not exist')
-            
-        with torch.no_grad():
-            ids_tensors = ids_tensors.to(device)
-            tags_tensors = tags_tensors.to(device)
-            masks_tensors = masks_tensors.to(device)
-
-            outputs = self.model(ids_tensors=ids_tensors, tags_tensors=None, masks_tensors=masks_tensors)
-            _, predictions = torch.max(outputs, dim=2)
-
-            pred += list([int(j) for i in predictions for j in i ])
-            trueth += list([int(j) for i in tags_tensors for j in i ])
-
-        return trueth, pred
+        
+        predictions = []
+        for i in range(len(data)):
+            sentence = data['Tokens'][i]
+            sentence = sentence.replace("'", "").strip("][").split(', ')
+            sentence = ' '.join(sentence)
+            w, p, _ = self.predict(sentence, device, batch_size, lr, epochs)
+            predictions.append(p)
+        acc = self._accuracy( np.concatenate(tags_real), np.concatenate(predictions))
+        return acc, predictions, tags_real
 
     def accuracy(self, data, device='cpu', batch_size=256, lr=1e-4, epochs=2):
-        # load model if exists
-
-        t, p = self.test(data)
-        return np.mean(np.array(t) == np.array(p))
+        a, p = self.test(data, device, batch_size, lr, epochs)
+        return a
