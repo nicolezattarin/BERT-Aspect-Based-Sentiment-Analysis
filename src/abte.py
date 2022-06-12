@@ -5,7 +5,7 @@ import time
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
-import os
+import os,sys
 
 class ATEDataset(Dataset):
     def __init__(self, df, tokenizer):
@@ -104,7 +104,7 @@ class ATEModel ():
             n_batches = int(len(data)/batch_size)
             # batch = next(iter(loader))
             # print (batch[0].shape, batch[1].shape, batch[2].shape, batch[3].shape)
-            for nb in tqdm(range((n_batches))):
+            for nb in range((n_batches)):
                 t0 = time.time()
 
                 ids_tensors, tags_tensors, _, masks_tensors = next(iter(loader))
