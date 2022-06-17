@@ -1,11 +1,13 @@
 from transformers import BertModel
+from transformers import get_scheduler
+
 import torch
 from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
+
 import time
 import numpy as np
-from torch.utils.data import Dataset, DataLoader
-from tqdm import tqdm
-import os,sys
+import os
 
 class ABTEDataset(Dataset):
     def __init__(self, df, tokenizer):
@@ -39,9 +41,13 @@ class ABTEDataset(Dataset):
         return len(self.df)
 
 class ABTEBert(torch.nn.Module):
-    def __init__(self, pretrain_model):
+    def __init__(self, pretrain_model, adapter=True):
         super(ABTEBert, self).__init__()
-        self.bert = BertModel.from_pretrained(pretrain_model)
+        self.adapter = adapter
+        if adapter:
+            from transformers.adapters import BertAdapterModel
+            self.bert = BertAdapterModel.from_pretrained(pretrain_model)
+        else: self.bert = BertModel.from_pretrained(pretrain_model)
         self.linear = torch.nn.Linear(self.bert.config.hidden_size, 3)
         self.loss_fn = torch.nn.CrossEntropyLoss()
 
@@ -59,10 +65,11 @@ class ABTEBert(torch.nn.Module):
             return linear_outputs
 
 class ABTEModel ():
-    def __init__(self, tokenizer):
-        self.model = ABTEBert('bert-base-uncased')
+    def __init__(self, tokenizer, adapter=True):
+        self.model = ABTEBert('bert-base-uncased', adapter=adapter)
         self.tokenizer = tokenizer
         self.trained = False
+        self.adapter = adapter
 
     def padding(self, samples):
         from torch.nn.utils.rnn import pad_sequence
@@ -84,27 +91,35 @@ class ABTEModel ():
         model.load_state_dict(torch.load(path), strict=False)
         
     def save_model(self, model, name):
-        torch.save(model.state_dict(), name)        
-                
+        torch.save(model.state_dict(), name)             
 
-    def train(self, data, epochs, device, batch_size=32, lr=1e-5):
+    def train(self, data, epochs, device, batch_size=32, lr=1e-5, load_model=None, lr_schedule=True):
+
+        #load model if lead_model is not None
+        if load_model is not None:
+            if os.path.exists(load_model):
+                self.load_model(self.model, load_model)
+                self.trained = True
+            else:
+                print("lead_model not found")
 
         # dataset and loader
         ds = ABTEDataset(data, self.tokenizer)
         loader = DataLoader(ds, batch_size=batch_size, shuffle=True, collate_fn=self.padding)
         
         self.model = self.model.to(device)
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
+        optimizer = torch.optim.AdamW(self.model.parameters(), lr=lr)
+        num_training_steps = epochs * len(loader)
+        if lr_schedule: lr_scheduler = get_scheduler(name="linear", optimizer=optimizer, num_warmup_steps=0, num_training_steps=num_training_steps)
+
         self.losses = []
 
         all_data = len(loader)-1
         for epoch in range(epochs):
             finish_data = 0
             current_times = []
-
             n_batches = int(len(data)/batch_size)
-            # batch = next(iter(loader))
-            # print (batch[0].shape, batch[1].shape, batch[2].shape, batch[3].shape)
+
             for nb in range((n_batches)):
                 t0 = time.time()
 
@@ -116,16 +131,28 @@ class ABTEModel ():
                 self.losses.append(loss.item())
                 loss.backward()
                 optimizer.step()
+                if lr_schedule: lr_scheduler.step()
                 optimizer.zero_grad()
 
                 finish_data += 1
                 current_time = round(time.time() - t0,3)
                 current_times.append(current_time)
+
+                if self.adapter:
+                    if lr_schedule: dir_name  = "model_ABTE_adapter_scheduler"
+                    else: dir_name = "model_ABTE_adapter"
+                else:
+                    if lr_schedule: dir_name  = "model_ABTE_scheduler"
+                    else: dir_name = "model_ABTE"
+
+                if not os.path.exists(dir_name):
+                    os.mkdir(dir_name)                
                 print("epoch: {}\tbatch: {}/{}\tloss: {}\tbatch time: {}\ttotal time: {}"\
                     .format(epoch, finish_data, all_data, loss.item(), current_time, sum(current_times)))
-                np.savetxt('losses_lr{}_epochs{}_batch{}.txt'.format(lr, epochs, batch_size), self.losses)
+            
+                np.savetxt('{}/losses_lr{}_epochs{}_batch{}.txt'.format(dir_name, lr, epochs, batch_size), self.losses)
 
-            self.save_model(self.model, 'model_lr{}_epochs{}_batch{}.pkl'.format(lr, epoch, batch_size))
+            self.save_model(self.model, '{}/model_lr{}_epochs{}_batch{}.pkl'.format(dir_name, lr, epoch, batch_size))
             self.trained = True
 
     def history (self):
@@ -142,12 +169,16 @@ class ABTEModel ():
     
         return unpacked_sequence
 
-    def predict(self, sentence, device='cpu', batch_size=256, lr=1e-4, epochs=2):
+    def predict(self, sentence, load_model=None, device='cpu'):
          # load model if exists
-        if os.path.exists('model_lr{}_epochs{}_batch{}.pkl'.format(lr, epochs, batch_size)):
-            self.load_model(self.model, 'model_lr{}_epochs{}_batch{}.pkl'.format(lr, epochs, batch_size))
-        if not self.trained and not os.path.exists('model_lr{}_epochs{}_batch{}.pkl'.format(lr, epochs, batch_size)):
-            raise Exception('model not trained and does not exist')
+        if load_model is not None:
+            if os.path.exists(load_model):
+                self.load_model(self.model, load_model)
+            else:
+                raise Exception('Model not found')
+        else:
+            if not self.trained:
+                raise Exception('model not trained')
 
         word_pieces = []
         tokens = self.tokenizer.tokenize(sentence)
@@ -170,27 +201,38 @@ class ABTEModel ():
                 acc += 1
         return acc/len(x)
 
-    def test(self, data, device='cpu', batch_size=256, lr=1e-4, epochs=2):
+    def test(self, data, load_model=None, device='cpu'):
         
         tags_real = [t.strip('][').split(', ') for t in data['Tags']]
         tags_real = [[int(i) for i in t] for t in tags_real]
 
         # load model if exists
-        if os.path.exists('model_lr{}_epochs{}_batch{}.pkl'.format(lr, epochs, batch_size)):
-            self.load_model(self.model, 'model_lr{}_epochs{}_batch{}.pkl'.format(lr, epochs, batch_size))
-        if not self.trained and not os.path.exists('model_lr{}_epochs{}_batch{}.pkl'.format(lr, epochs, batch_size)):
-            raise Exception('model not trained and does not exist')
+        if load_model is not None:
+            if os.path.exists(load_model):
+                self.load_model(self.model, load_model)
+            else:
+                raise Exception('Model not found')
+        else:
+            if not self.trained:
+                raise Exception('model not trained')
         
         predictions = []
+
+        logs_index = int(len(data)/50)
+        if logs_index == 0:
+            logs_index = 1
         for i in range(len(data)):
+            if i % logs_index == 0:
+                print('{}/{}'.format(i, len(data)))
+                
             sentence = data['Tokens'][i]
             sentence = sentence.replace("'", "").strip("][").split(', ')
             sentence = ' '.join(sentence)
-            w, p, _ = self.predict(sentence, device, batch_size, lr, epochs)
+            w, p, _ = self.predict(sentence, load_model=load_model, device=device)
             predictions.append(p)
         acc = self._accuracy( np.concatenate(tags_real), np.concatenate(predictions))
         return acc, predictions, tags_real
 
-    def accuracy(self, data, device='cpu', batch_size=256, lr=1e-4, epochs=2):
-        a, p = self.test(data, device, batch_size, lr, epochs)
+    def accuracy(self, data, load_model=None, device='cpu'):
+        a, p = self.test(data,  load_model=load_model, device=device)
         return a
