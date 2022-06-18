@@ -1,0 +1,31 @@
+import os, sys
+sys.path.insert(1, '../dataset')
+import numpy as np
+import pandas as pd
+import warnings
+warnings.filterwarnings("ignore")
+import matplotlib.pyplot as plt
+import seaborn as sns
+import argparse
+import torch
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--batch', type=int, default=8, help='batch size')
+parser.add_argument('--epochs', type=int, default=5, help='number of epochs')
+parser.add_argument('--lr', type=float, default=3*1e-5, help='learning rate')
+parser.add_argument('--lr_schedule', type=bool, default=False, help='learning rate scheduler')
+parser.add_argument('--adapter', type=bool, default=False, help='adapter')
+
+def main (batch, epochs, lr, lr_schedule, adapter):
+
+    #load
+    data = pd.read_csv('../dataset/normalized/restaurants_train.csv')
+    data_test = pd.read_csv('../dataset/normalized/restaurants_test.csv')
+
+    from transformers import BertTokenizer
+    tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
+    DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    from abte import ABTEModel
+    modelABTE = ABTEModel(tokenizer, adapter=adapter)
+    modelABTE.train(data, batch_size=batch, lr=lr, epochs=epochs, device=DEVICE, lr_schedule=lr_schedule)
