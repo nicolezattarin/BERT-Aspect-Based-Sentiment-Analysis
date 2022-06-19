@@ -120,6 +120,16 @@ class ABTEModel ():
             current_times = []
             n_batches = int(len(data)/batch_size)
 
+            if self.adapter:
+                if lr_schedule: dir_name  = "model_ABTE_adapter_scheduler"
+                else: dir_name = "model_ABTE_adapter"
+            else:
+                if lr_schedule: dir_name  = "model_ABTE_scheduler"
+                else: dir_name = "model_ABTE"
+
+            if not os.path.exists(dir_name):
+                os.mkdir(dir_name)      
+
             for nb in range((n_batches)):
                 t0 = time.time()
 
@@ -136,17 +146,7 @@ class ABTEModel ():
 
                 finish_data += 1
                 current_time = round(time.time() - t0,3)
-                current_times.append(current_time)
-
-                if self.adapter:
-                    if lr_schedule: dir_name  = "model_ABTE_adapter_scheduler"
-                    else: dir_name = "model_ABTE_adapter"
-                else:
-                    if lr_schedule: dir_name  = "model_ABTE_scheduler"
-                    else: dir_name = "model_ABTE"
-
-                if not os.path.exists(dir_name):
-                    os.mkdir(dir_name)                
+                current_times.append(current_time)          
                 print("epoch: {}\tbatch: {}/{}\tloss: {}\tbatch time: {}\ttotal time: {}"\
                     .format(epoch, finish_data, all_data, loss.item(), current_time, sum(current_times)))
             
