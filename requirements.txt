@@ -3,3 +3,13 @@ opendatasets
 contractions
 textblob
 spacy
+transformers
+numpy
+pandas
+matplotlib
+seaborn
+sklearn
+tensorflow
+torch
+tqdm
+adapter-transformers

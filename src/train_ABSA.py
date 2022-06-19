@@ -14,7 +14,7 @@ parser.add_argument('--batch', type=int, default=8, help='batch size')
 parser.add_argument('--epochs', type=int, default=5, help='number of epochs')
 parser.add_argument('--lr', type=float, default=3*1e-5, help='learning rate')
 parser.add_argument('--lr_schedule', type=bool, default=False, help='learning rate scheduler')
-parser.add_argument('--adapter', type=bool, default=False, help='adapter')
+parser.add_argument('--adapter', type=bool, default=True, help='adapter')
 
 def main (batch, epochs, lr, lr_schedule, adapter):
 
@@ -26,6 +26,11 @@ def main (batch, epochs, lr, lr_schedule, adapter):
     tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
     DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    from abte import ABTEModel
-    modelABTE = ABTEModel(tokenizer, adapter=adapter)
-    modelABTE.train(data, batch_size=batch, lr=lr, epochs=epochs, device=DEVICE, lr_schedule=lr_schedule)
+    from absa import ABSAModel
+    modelABSA = ABSAModel(tokenizer, adapter=adapter)
+    modelABSA.train(data, batch_size=batch, lr=lr, epochs=epochs, device=DEVICE, lr_schedule=lr_schedule)
+
+if __name__ == '__main__':
+    args = parser.parse_args()
+    main(args.batch, args.epochs, args.lr, args.lr_schedule, args.adapter)
+    print('Done')

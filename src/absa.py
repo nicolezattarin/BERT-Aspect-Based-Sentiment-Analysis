@@ -58,8 +58,8 @@ class ABSABert(torch.nn.Module):
         self.loss_fn = torch.nn.CrossEntropyLoss()
 
     def forward(self, ids_tensors, lable_tensors, masks_tensors, segments_tensors):
-        _, pooled_outputs = self.bert(input_ids=ids_tensors, attention_mask=masks_tensors, token_type_ids=segments_tensors)
-        linear_outputs = self.linear(pooled_outputs)
+        out_dict = self.bert(input_ids=ids_tensors, attention_mask=masks_tensors, token_type_ids=segments_tensors)
+        linear_outputs = self.linear(out_dict['pooler_output'])
 
         if lable_tensors is not None:
             loss = self.loss_fn(linear_outputs, lable_tensors)
@@ -69,7 +69,7 @@ class ABSABert(torch.nn.Module):
 
 
 class ABSAModel ():
-    def __init__(self, tokenizer, adapter=True)
+    def __init__(self, tokenizer, adapter=True):
         self.model = ABSABert('bert-base-uncased')
         self.tokenizer = tokenizer
         self.trained = False
@@ -123,6 +123,16 @@ class ABSAModel ():
             current_times = []
             n_batches = int(len(data)/batch_size)
 
+            if self.adapter:
+                if lr_schedule: dir_name  = "model_ABSA_adapter_scheduler"
+                else: dir_name = "model_ABSA_adapter"
+            else:
+                if lr_schedule: dir_name  = "model_ABSA_scheduler"
+                else: dir_name = "model_ABSA"
+
+            if not os.path.exists(dir_name):
+                os.mkdir(dir_name)  
+
             for nb in range((n_batches)):
                 t0 = time.time()
 
@@ -144,15 +154,6 @@ class ABSAModel ():
                 current_time = round(time.time() - t0,3)
                 current_times.append(current_time)
 
-                if self.adapter:
-                    if lr_schedule: dir_name  = "model_ABSA_adapter_scheduler"
-                    else: dir_name = "model_ABSA_adapter"
-                else:
-                    if lr_schedule: dir_name  = "model_ABSA_scheduler"
-                    else: dir_name = "model_ABSA"
-
-                if not os.path.exists(dir_name):
-                    os.mkdir(dir_name)                
                 print("epoch: {}\tbatch: {}/{}\tloss: {}\tbatch time: {}\ttotal time: {}"\
                     .format(epoch, finish_data, all_data, loss.item(), current_time, sum(current_times)))
             
