@@ -13,14 +13,13 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--batch', type=int, default=8, help='batch size')
 parser.add_argument('--epochs', type=int, default=5, help='number of epochs')
 parser.add_argument('--lr', type=float, default=3*1e-5, help='learning rate')
-parser.add_argument('--lr_schedule', type=bool, default=False, help='learning rate scheduler')
+parser.add_argument('--lr_schedule', type=bool, default=True, help='learning rate scheduler')
 parser.add_argument('--adapter', type=bool, default=True, help='adapter')
 
 def main (batch, epochs, lr, lr_schedule, adapter):
 
     #load
     data = pd.read_csv('../dataset/normalized/restaurants_train.csv')
-    data_test = pd.read_csv('../dataset/normalized/restaurants_test.csv')
 
     from transformers import BertTokenizer
     tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")

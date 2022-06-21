@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from sqlalchemy import null
 
 def tag_to_word(sentence, predictions):
     """
@@ -8,8 +9,17 @@ def tag_to_word(sentence, predictions):
     """
     terms = []
     for i, word in enumerate(sentence):
+        w = None
         if predictions[i] == 1:
-            terms.append(word)
+            w = word 
+            for j in range(i+1, len(sentence)):
+                if predictions[i] == 2:
+                    w += ' ' + sentence[i+1]
+                else: 
+                    terms.append(w)
+                    i = j
+                    break
+
     return terms
 
 def tag_to_word_df(df, column_name, tags):
