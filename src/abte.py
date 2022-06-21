@@ -8,6 +8,7 @@ from torch.utils.data import Dataset, DataLoader
 import time
 import numpy as np
 import os
+from tqdm import tqdm
 
 class ABTEDataset(Dataset):
     def __init__(self, df, tokenizer):
@@ -65,11 +66,11 @@ class ABTEBert(torch.nn.Module):
             return linear_outputs
 
 class ABTEModel ():
-    def __init__(self, tokenizer, adapter=True):
+    def __init__(self, tokenizer, adapter):
         self.model = ABTEBert('bert-base-uncased', adapter=adapter)
         self.tokenizer = tokenizer
         self.trained = False
-        self.adapter = adapter
+        self.adapter = False
 
     def padding(self, samples):
         from torch.nn.utils.rnn import pad_sequence
@@ -93,8 +94,7 @@ class ABTEModel ():
     def save_model(self, model, name):
         torch.save(model.state_dict(), name)             
 
-    def train(self, data, epochs, device, batch_size=32, lr=1e-5, load_model=None, lr_schedule=True):
-
+    def train(self, data, epochs, device, lr_schedule, batch_size=8, lr=3*1e-5, load_model=None):
         #load model if lead_model is not None
         if load_model is not None:
             if os.path.exists(load_model):
@@ -110,7 +110,8 @@ class ABTEModel ():
         self.model = self.model.to(device)
         optimizer = torch.optim.AdamW(self.model.parameters(), lr=lr)
         num_training_steps = epochs * len(loader)
-        if lr_schedule: lr_scheduler = get_scheduler(name="linear", optimizer=optimizer, num_warmup_steps=0, num_training_steps=num_training_steps)
+        if lr_schedule: lr_scheduler = get_scheduler(name="linear", optimizer=optimizer, 
+                                                    num_warmup_steps=0, num_training_steps=num_training_steps)
 
         self.losses = []
 
@@ -120,6 +121,7 @@ class ABTEModel ():
             current_times = []
             n_batches = int(len(data)/batch_size)
 
+            print ('training with adapter {} and lr schedule {}'.format(self.adapter, lr_schedule))
             if self.adapter:
                 if lr_schedule: dir_name  = "model_ABTE_adapter_scheduler"
                 else: dir_name = "model_ABTE_adapter"
@@ -161,15 +163,8 @@ class ABTEModel ():
         else:
             raise Exception('Model not trained')
 
-    def unpack_sequence(self, packed_sequence, mask):
-        unpacked_sequence = []
-        for i in range(len(packed_sequence)):
-            if mask[i] == 1:
-                unpacked_sequence.append(packed_sequence[i])
-    
-        return unpacked_sequence
-
     def predict(self, sentence, load_model=None, device='cpu'):
+
          # load model if exists
         if load_model is not None:
             if os.path.exists(load_model):
@@ -180,29 +175,20 @@ class ABTEModel ():
             if not self.trained:
                 raise Exception('model not trained')
 
-        word_pieces = []
-        tokens = self.tokenizer.tokenize(sentence)
-        word_pieces += tokens
-
+        word_pieces = list(self.tokenizer.tokenize(sentence))
         ids = self.tokenizer.convert_tokens_to_ids(word_pieces)
         input_tensor = torch.tensor([ids]).to(device)
 
+        #predict
         with torch.no_grad():
             outputs = self.model(input_tensor, None, None)
             _, predictions = torch.max(outputs, dim=2)
-        predictions = predictions[0].tolist()
-
+            
+        predictions = predictions[0].tolist() 
         return word_pieces, predictions, outputs
+    
+    def predict_batch(self, data, load_model=None, device='cpu'):
 
-    def _accuracy (self, x,y):
-        acc = 0
-        for i in range(len(x)):
-            if x[i] == y[i]:
-                acc += 1
-        return acc/len(x)
-
-    def test(self, data, load_model=None, device='cpu'):
-        
         tags_real = [t.strip('][').split(', ') for t in data['Tags']]
         tags_real = [[int(i) for i in t] for t in tags_real]
 
@@ -218,21 +204,57 @@ class ABTEModel ():
         
         predictions = []
 
-        logs_index = int(len(data)/50)
-        if logs_index == 0:
-            logs_index = 1
-        for i in range(len(data)):
-            if i % logs_index == 0:
-                print('{}/{}'.format(i, len(data)))
-                
+        for i in tqdm(range(len(data))):
             sentence = data['Tokens'][i]
             sentence = sentence.replace("'", "").strip("][").split(', ')
             sentence = ' '.join(sentence)
             w, p, _ = self.predict(sentence, load_model=load_model, device=device)
             predictions.append(p)
-        acc = self._accuracy( np.concatenate(tags_real), np.concatenate(predictions))
-        return acc, predictions, tags_real
+            tags_real[i] = tags_real[i][:len(p)]
+            
+        return predictions, tags_real
+
+    def _accuracy (self, x,y):
+        return np.mean(np.array(x) == np.array(y))
+
+    def test(self, dataset, load_model=None, device='cpu'):
+
+        from sklearn.metrics import classification_report
+        # load model if exists
+        if load_model is not None:
+            if os.path.exists(load_model):
+                self.load_model(self.model, load_model)
+            else:
+                raise Exception('Model not found')
+        else:
+            if not self.trained:
+                raise Exception('model not trained')
+
+         # dataset and loader
+        ds = ABTEDataset(dataset, self.tokenizer)
+        loader = DataLoader(ds, batch_size=50, shuffle=True, collate_fn=self.padding)
+
+        pred = []#padded list
+        trueth = [] #padded list
+        with torch.no_grad():
+            for data in tqdm(loader):
+                
+                ids_tensors, tags_tensors, _, masks_tensors = data
+                ids_tensors = ids_tensors.to(device)
+                tags_tensors = tags_tensors.to(device)
+                masks_tensors = masks_tensors.to(device)
+
+                outputs = self.model(ids_tensors=ids_tensors, tags_tensors=None, masks_tensors=masks_tensors)
+                
+                _, p = torch.max(outputs, dim=2)
+
+                pred += list([int(j) for i in p for j in i ])
+                trueth += list([int(j) for i in tags_tensors for j in i ])
+        
+        acc = self._accuracy(pred, trueth)
+        class_report = classification_report(trueth, pred, target_names=['none', 'start of AT', 'mark of AT'])
+        return acc, class_report
 
     def accuracy(self, data, load_model=None, device='cpu'):
-        a, p = self.test(data,  load_model=load_model, device=device)
+        a, p = self.test(data, load_model=load_model, device=device)
         return a

@@ -159,7 +159,7 @@ class ABSAModel ():
             
                 np.savetxt('{}/losses_lr{}_epochs{}_batch{}.txt'.format(dir_name, lr, epochs, batch_size), self.losses)
 
-            self.save_model(self.model, 'model_ABSA/model_lr{}_epochs{}_batch{}.pkl'.format(lr, epoch, batch_size))
+            self.save_model(self.model, '{}/model_lr{}_epochs{}_batch{}.pkl'.format(dir_name, lr, epoch, batch_size))
             self.trained = True
 
     def history (self):
@@ -175,11 +175,11 @@ class ABSAModel ():
                 unpacked_sequence.append(packed_sequence[i])
         return unpacked_sequence
 
-    def predict(self, sentence, aspect, model_load=None, device='cpu'):
+    def predict(self, sentence, aspect, load_model=None, device='cpu'):
          # load model if exists
-        if model_load is not None:
-            if os.path.exists(model_load):
-                self.load_model(self.model, model_load)
+        if load_model is not None:
+            if os.path.exists(load_model):
+                self.load_model(self.model, load_model)
             else:
                 raise Exception('Model not found')
         else:
@@ -213,15 +213,15 @@ class ABSAModel ():
                 acc += 1
         return acc/len(x)
 
-    def test(self, data, model_load=None, device='cpu'):
+    def test(self, data, load_model=None, device='cpu'):
         
         tags_real = [t.strip('][').split(', ') for t in data['Tags']]
         tags_real = [[int(i) for i in t] for t in tags_real]
 
         # load model if exists
-        if model_load is not None:
-            if os.path.exists(model_load):
-                self.load_model(self.model, model_load)
+        if load_model is not None:
+            if os.path.exists(load_model):
+                self.load_model(self.model, load_model)
             else:
                 raise Exception('Model not found')
         else:
@@ -235,10 +235,16 @@ class ABSAModel ():
             if i % logs_index == 0:
                 print('{}/{}'.format(i, len(data)))
             sentence = data['Tokens'][i]
-            sentence = sentence.replace("'", "").strip("][").split(', ')
-            sentence = ' '.join(sentence)
-            w, p, _ = self.predict(sentence, model_load=model_load, device=device)
-            predictions.append(p)
+            sentenceList = sentence.replace("'", "").strip("][").split(', ')
+            sentence = ' '.join(sentenceList)
+            
+            for j in range(len(tags_real[i])):
+                if tags_real[i][j] == 1:
+                    aspect = sentenceList[j]
+                    w, p, _ = self.predict(sentence, aspect, load_model=load_model, device=device)
+                    p = int(p)-1
+                    predictions.append(p)
+                    tags_real[i] = tags_real[i][:len(p)]
         acc = self._accuracy( np.concatenate(tags_real), np.concatenate(predictions))
         return acc, predictions, tags_real
 
