@@ -8,6 +8,7 @@ from torch.utils.data import Dataset, DataLoader
 import time
 import numpy as np
 import os
+from tqdm import tqdm
 
 class ABSADataset(Dataset):
     def __init__(self, df, tokenizer):
@@ -106,13 +107,23 @@ class ABSAModel ():
             else:
                 print("lead_model not found")
 
+        print ("Training model...")
+        print ("Learning rate scheduler: ", lr_schedule)
+        print ("Adapter: ", self.adapter)
+
         ds = ABSADataset(data, self.tokenizer)
         loader = DataLoader(ds, batch_size=batch_size, shuffle=True, collate_fn=self.padding)
         
         self.model = self.model.to(device)
         optimizer = torch.optim.AdamW(self.model.parameters(), lr=lr)
+
         num_training_steps = epochs * len(loader)
-        if lr_schedule: lr_scheduler = get_scheduler(name="linear", optimizer=optimizer, num_warmup_steps=0, num_training_steps=num_training_steps)
+
+        # possible choices for scheduler are: "constant", "constant_with_warmup", 
+        # "polynomial", "cosine_with_restarts", "linear", 'cosine'
+
+        if lr_schedule: lr_scheduler = get_scheduler(name="constant_with_warmup", optimizer=optimizer, 
+                                    num_warmup_steps=200, num_training_steps=num_training_steps)
 
         self.losses = []
 
@@ -168,13 +179,6 @@ class ABSAModel ():
         else:
             raise Exception('Model not trained')
 
-    def unpack_sequence(self, packed_sequence, mask):
-        unpacked_sequence = []
-        for i in range(len(packed_sequence)):
-            if mask[i] == 1:
-                unpacked_sequence.append(packed_sequence[i])
-        return unpacked_sequence
-
     def predict(self, sentence, aspect, load_model=None, device='cpu'):
          # load model if exists
         if load_model is not None:
@@ -213,7 +217,7 @@ class ABSAModel ():
                 acc += 1
         return acc/len(x)
 
-    def test(self, data, load_model=None, device='cpu'):
+    def predict_batch(self, data, load_model=None, device='cpu'):
         
         tags_real = [t.strip('][').split(', ') for t in data['Tags']]
         tags_real = [[int(i) for i in t] for t in tags_real]
@@ -229,11 +233,8 @@ class ABSAModel ():
                 raise Exception('model not trained')
         
         predictions = []
-        logs_index = int(len(data)/50)
 
-        for i in range(len(data)):
-            if i % logs_index == 0:
-                print('{}/{}'.format(i, len(data)))
+        for i in tqdm(range(len(data))):
             sentence = data['Tokens'][i]
             sentenceList = sentence.replace("'", "").strip("][").split(', ')
             sentence = ' '.join(sentenceList)
@@ -248,6 +249,47 @@ class ABSAModel ():
         acc = self._accuracy( np.concatenate(tags_real), np.concatenate(predictions))
         return acc, predictions, tags_real
 
-    def accuracy(self, data, model_load=None, device='cpu'):
-        a, p = self.test(data, model_load=model_load, device=device)
+    def _accuracy (self, x,y):
+        return np.mean(np.array(x) == np.array(y))
+
+    def test(self, dataset, load_model=None, device='cpu'):
+        from sklearn.metrics import classification_report
+        # load model if exists
+        if load_model is not None:
+            if os.path.exists(load_model):
+                self.load_model(self.model, load_model)
+            else:
+                raise Exception('Model not found')
+        else:
+            if not self.trained:
+                raise Exception('model not trained')
+
+        # dataset and loader
+        ds = ABSADataset(dataset, self.tokenizer)
+        loader = DataLoader(ds, batch_size=50, shuffle=True, collate_fn=self.padding)
+
+        pred = []#padded list
+        trueth = [] #padded list
+     
+        with torch.no_grad():
+            for data in tqdm(loader):
+            
+                ids_tensors, segments_tensors, masks_tensors, label_ids = data
+                ids_tensors = ids_tensors.to(device)
+                segments_tensors = segments_tensors.to(device)
+                masks_tensors = masks_tensors.to(device)
+
+                outputs = self.model(ids_tensors, None, masks_tensors=masks_tensors, 
+                                    segments_tensors=segments_tensors)
+                
+                _, p = torch.max(outputs, dim=1)   
+                
+                pred += list([int(i) for i in p])
+                trueth += list([int(i) for i in label_ids])    
+        acc = self._accuracy(pred, trueth)
+        class_report = classification_report(trueth, pred, target_names=['none', 'start of AT', 'mark of AT'])
+        return acc, class_report
+        
+    def accuracy(self, data, load_model=None, device='cpu'):
+        a, p = self.test(data, load_model=load_model, device=device)
         return a

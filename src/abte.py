@@ -66,11 +66,11 @@ class ABTEBert(torch.nn.Module):
             return linear_outputs
 
 class ABTEModel ():
-    def __init__(self, tokenizer, adapter):
+    def __init__(self, tokenizer, adapter=True):
         self.model = ABTEBert('bert-base-uncased', adapter=adapter)
         self.tokenizer = tokenizer
         self.trained = False
-        self.adapter = False
+        self.adapter = adapter
 
     def padding(self, samples):
         from torch.nn.utils.rnn import pad_sequence
@@ -94,7 +94,8 @@ class ABTEModel ():
     def save_model(self, model, name):
         torch.save(model.state_dict(), name)             
 
-    def train(self, data, epochs, device, lr_schedule, batch_size=8, lr=3*1e-5, load_model=None):
+    def train(self, data, epochs, device, batch_size=32, lr=1e-5, load_model=None, lr_schedule=True):
+
         #load model if lead_model is not None
         if load_model is not None:
             if os.path.exists(load_model):
@@ -102,6 +103,9 @@ class ABTEModel ():
                 self.trained = True
             else:
                 print("lead_model not found")
+        print ("Training model...")
+        print ("Learning rate scheduler: ", lr_schedule)
+        print ("Adapter: ", self.adapter)
 
         # dataset and loader
         ds = ABTEDataset(data, self.tokenizer)
@@ -110,8 +114,7 @@ class ABTEModel ():
         self.model = self.model.to(device)
         optimizer = torch.optim.AdamW(self.model.parameters(), lr=lr)
         num_training_steps = epochs * len(loader)
-        if lr_schedule: lr_scheduler = get_scheduler(name="linear", optimizer=optimizer, 
-                                                    num_warmup_steps=0, num_training_steps=num_training_steps)
+        if lr_schedule: lr_scheduler = get_scheduler(name="linear", optimizer=optimizer, num_warmup_steps=0, num_training_steps=num_training_steps)
 
         self.losses = []
 
@@ -121,7 +124,6 @@ class ABTEModel ():
             current_times = []
             n_batches = int(len(data)/batch_size)
 
-            print ('training with adapter {} and lr schedule {}'.format(self.adapter, lr_schedule))
             if self.adapter:
                 if lr_schedule: dir_name  = "model_ABTE_adapter_scheduler"
                 else: dir_name = "model_ABTE_adapter"
@@ -139,6 +141,7 @@ class ABTEModel ():
                 ids_tensor = ids_tensors.to(device)
                 tags_tensor = tags_tensors.to(device)
                 masks_tensor = masks_tensors.to(device)
+
                 loss = self.model(ids_tensors=ids_tensor, tags_tensors=tags_tensor, masks_tensors=masks_tensor)
                 self.losses.append(loss.item())
                 loss.backward()
@@ -148,7 +151,8 @@ class ABTEModel ():
 
                 finish_data += 1
                 current_time = round(time.time() - t0,3)
-                current_times.append(current_time)          
+                current_times.append(current_time)    
+                      
                 print("epoch: {}\tbatch: {}/{}\tloss: {}\tbatch time: {}\ttotal time: {}"\
                     .format(epoch, finish_data, all_data, loss.item(), current_time, sum(current_times)))
             
@@ -164,7 +168,6 @@ class ABTEModel ():
             raise Exception('Model not trained')
 
     def predict(self, sentence, load_model=None, device='cpu'):
-
          # load model if exists
         if load_model is not None:
             if os.path.exists(load_model):
@@ -218,7 +221,6 @@ class ABTEModel ():
         return np.mean(np.array(x) == np.array(y))
 
     def test(self, dataset, load_model=None, device='cpu'):
-
         from sklearn.metrics import classification_report
         # load model if exists
         if load_model is not None:
