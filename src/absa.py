@@ -68,7 +68,6 @@ class ABSABert(torch.nn.Module):
         else:
             return linear_outputs
 
-
 class ABSAModel ():
     def __init__(self, tokenizer, adapter=True):
         self.model = ABSABert('bert-base-uncased')
@@ -122,8 +121,8 @@ class ABSAModel ():
         # possible choices for scheduler are: "constant", "constant_with_warmup", 
         # "polynomial", "cosine_with_restarts", "linear", 'cosine'
 
-        if lr_schedule: lr_scheduler = get_scheduler(name="constant_with_warmup", optimizer=optimizer, 
-                                    num_warmup_steps=200, num_training_steps=num_training_steps)
+        if lr_schedule: lr_scheduler = get_scheduler(name="polynomial", optimizer=optimizer, 
+                                    num_warmup_steps=0, num_training_steps=num_training_steps)
 
         self.losses = []
 
@@ -208,7 +207,7 @@ class ABSAModel ():
             outputs = self.model(input_tensor, None, None, segments_tensors=segment_tensor)
             _, predictions = torch.max(outputs, dim=1)
         
-        return word_pieces, predictions, outputs
+        return word_pieces, int(predictions)-1, outputs
 
     def _accuracy (self, x,y):
         acc = 0
@@ -220,7 +219,11 @@ class ABSAModel ():
     def predict_batch(self, data, load_model=None, device='cpu'):
         
         tags_real = [t.strip('][').split(', ') for t in data['Tags']]
-        tags_real = [[int(i) for i in t] for t in tags_real]
+        tags_real = [[int(i) for i in t ] for t in tags_real]
+        
+        polarity_real = [t.strip('][').split(', ') for t in data['Polarities']]
+        # if -1 is not an aspect term, if 0 negative, if 2 positive, if 1 neutral, shift of 1
+        polarity_real = [[int(i)-1 if int(i)>-1 else None for i in t ] for t in polarity_real]
 
         # load model if exists
         if load_model is not None:
@@ -238,16 +241,18 @@ class ABSAModel ():
             sentence = data['Tokens'][i]
             sentenceList = sentence.replace("'", "").strip("][").split(', ')
             sentence = ' '.join(sentenceList)
-            
-            for j in range(len(tags_real[i])):
-                if tags_real[i][j] == 1:
+            prediction = []
+            for j in range(len(sentenceList)):
+                if tags_real[i][j] != 0:
                     aspect = sentenceList[j]
+
                     w, p, _ = self.predict(sentence, aspect, load_model=load_model, device=device)
-                    p = int(p)-1
-                    predictions.append(p)
-                    tags_real[i] = tags_real[i][:len(p)]
-        acc = self._accuracy( np.concatenate(tags_real), np.concatenate(predictions))
-        return acc, predictions, tags_real
+                    prediction.append(p)
+                else:
+                    prediction.append(None)
+            predictions.append(prediction)
+            polarity_real[i] = polarity_real[i][:len(prediction)]
+        return predictions, polarity_real
 
     def _accuracy (self, x,y):
         return np.mean(np.array(x) == np.array(y))
@@ -283,11 +288,10 @@ class ABSAModel ():
                                     segments_tensors=segments_tensors)
                 
                 _, p = torch.max(outputs, dim=1)   
-                
                 pred += list([int(i) for i in p])
                 trueth += list([int(i) for i in label_ids])    
         acc = self._accuracy(pred, trueth)
-        class_report = classification_report(trueth, pred, target_names=['none', 'start of AT', 'mark of AT'])
+        class_report = classification_report(trueth, pred, target_names=['negative', 'neutral', 'positive'])
         return acc, class_report
         
     def accuracy(self, data, load_model=None, device='cpu'):
