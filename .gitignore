@@ -13,6 +13,8 @@ dataset/atepc/*
 dataset/restaurants*
 dataset/data_prep*
 src/losses*
+src/scratch*
+
 
 # Distribution / packaging
 .Python
