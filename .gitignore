@@ -8,7 +8,10 @@ __pycache__/
 
 #MODELS
 src/model*
-dataset/*
+src/final/*
+dataset/atepc/*
+dataset/restaurants*
+dataset/data_prep*
 src/losses*
 
 # Distribution / packaging
