@@ -121,8 +121,8 @@ class ABSAModel ():
         # possible choices for scheduler are: "constant", "constant_with_warmup", 
         # "polynomial", "cosine_with_restarts", "linear", 'cosine'
 
-        if lr_schedule: lr_scheduler = get_scheduler(name="polynomial", optimizer=optimizer, 
-                                    num_warmup_steps=0, num_training_steps=num_training_steps)
+        if lr_schedule: lr_scheduler = get_scheduler(name="constant_with_warmup", optimizer=optimizer, 
+                                    num_warmup_steps=200, num_training_steps=num_training_steps)
 
         self.losses = []
 
@@ -179,6 +179,11 @@ class ABSAModel ():
             raise Exception('Model not trained')
 
     def predict(self, sentence, aspect, load_model=None, device='cpu'):
+
+        #check that the aspect is in the sentence
+        if aspect not in sentence:
+            raise Exception('Aspect {} not in sentence \n{}'.format(aspect, sentence))
+
          # load model if exists
         if load_model is not None:
             if os.path.exists(load_model):

@@ -27,7 +27,7 @@ def main (batch, epochs, lr, lr_schedule, adapter):
 
     from absa import ABSAModel
     modelABSA = ABSAModel(tokenizer, adapter=True)
-    modelABSA.train(data, batch_size=batch, lr=lr, epochs=epochs, device=DEVICE, lr_schedule=False)
+    modelABSA.train(data, batch_size=batch, lr=lr, epochs=epochs, device=DEVICE, lr_schedule=True)
 
 if __name__ == '__main__':
     args = parser.parse_args()
