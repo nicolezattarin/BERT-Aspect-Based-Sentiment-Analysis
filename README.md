@@ -92,6 +92,12 @@ Best setup in terms of variance-bias tradeoff for Aspect-terms extraction is wit
 | macro avg                | 0.83      | 0.76   | 0.79     | 71640   |   | macro avg                 | 0.82      | 0.77   | 0.79     | 243212  |
 | weighted avg             | 0.96      | 0.96   | 0.96     | 71640   |   | weighted avg              | 0.96      | 0.96   | 0.96     | 243212  |
 
+
+A visualization of the extracted terms follows:
+<p align="center">
+  <img src="src/results_ABTE/adapter_extracted_terms_wordcloud.pdf" width="800" />
+</p>
+
 ## References:
 
 [1] **Aspect-Term-Extraction-and-Analysis**, https://github.com/1tangerine1day/Aspect-Term-Extraction-and-Analysis
