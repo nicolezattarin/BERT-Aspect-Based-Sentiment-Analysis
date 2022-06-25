@@ -103,9 +103,6 @@ class ABTEModel ():
                 self.trained = True
             else:
                 print("lead_model not found")
-        print ("Training model...")
-        print ("Learning rate scheduler: ", lr_schedule)
-        print ("Adapter: ", self.adapter)
 
         # dataset and loader
         ds = ABTEDataset(data, self.tokenizer)
@@ -141,7 +138,6 @@ class ABTEModel ():
                 ids_tensor = ids_tensors.to(device)
                 tags_tensor = tags_tensors.to(device)
                 masks_tensor = masks_tensors.to(device)
-
                 loss = self.model(ids_tensors=ids_tensor, tags_tensors=tags_tensor, masks_tensors=masks_tensor)
                 self.losses.append(loss.item())
                 loss.backward()
@@ -151,8 +147,7 @@ class ABTEModel ():
 
                 finish_data += 1
                 current_time = round(time.time() - t0,3)
-                current_times.append(current_time)    
-                      
+                current_times.append(current_time)          
                 print("epoch: {}\tbatch: {}/{}\tloss: {}\tbatch time: {}\ttotal time: {}"\
                     .format(epoch, finish_data, all_data, loss.item(), current_time, sum(current_times)))
             
