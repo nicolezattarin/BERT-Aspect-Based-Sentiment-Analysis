@@ -95,7 +95,7 @@ Best setup in terms of variance-bias tradeoff for Aspect-terms extraction is wit
 
 A visualization of the extracted terms follows:
 <p align="center">
-  <img src="src/results_ABTE/adapter_extracted_terms_wordcloud.pdf" width="800" />
+  <img src="src/results_ABTE/adapter_extracted_terms_wordcloud.png" width="800" />
 </p>
 
 ## References:
