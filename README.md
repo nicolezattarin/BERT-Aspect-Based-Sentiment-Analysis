@@ -1,5 +1,8 @@
 # Aspect-term extraction and Aspect-based sentiment analysis
  
+**Dependencies**
+Run ```sh install.sh``` to install the dependencies in your own environment.
+
 # Introduction
 
 Sentiment analysis, i.e. the analysis of the feeling expressed in a sentence, is a leading application area in natural language processing. Indeed, it has attract the interest of brands, which are interesent analyzing customer feedback, such as opinions in survey responses and social media conversations, so that they can tailor products and services to meet their customers’ needs.
