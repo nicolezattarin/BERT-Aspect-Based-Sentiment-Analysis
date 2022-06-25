@@ -82,16 +82,15 @@ Since we trained 8 different models, training has been performed separately and 
 
 Best setup in terms of variance-bias tradeoff for Aspect-terms extraction is with adapter+scheduler:
 
-| TEST ADAPTER + SCHEDULER |           |        |          |         |   | Train ADAPTER + SCHEDULER |           |        |          |         |
-|--------------------------|-----------|--------|----------|---------|---|---------------------------|-----------|--------|----------|---------|
-|                          | precision | recall | f1-score | support |   |                           | precision | recall | f1-score | support |
-| none                     | 0.98      | 0.99   | 0.98     | 65477   |   | none                      | 0.98      | 0.99   | 0.98     | 227086  |
-| start of AT              | 0.70      | 0.68   | 0.69     | 4022    |   | start of AT               | 0.69      | 0.66   | 0.68     | 11416   |
-| mark of AT               | 0.83      | 0.61   | 0.70     | 2141    |   | mark of AT                | 0.78      | 0.67   | 0.72     | 4710    |
-| accuracy                 | 0.96      | 71640  | accuracy | 0.96    |   | 243212                    |           |        |          |         |
-| macro avg                | 0.83      | 0.76   | 0.79     | 71640   |   | macro avg                 | 0.82      | 0.77   | 0.79     | 243212  |
-| weighted avg             | 0.96      | 0.96   | 0.96     | 71640   |   | weighted avg              | 0.96      | 0.96   | 0.96     | 243212  |
-	 
+| TEST ADAPTER + SCHEDULER |           |        |          |         |   | Train ADAPTER + SCHEDULER |           |        |          |         |       |
+|--------------------------|-----------|--------|----------|---------|---|---------------------------|-----------|--------|----------|---------|-------|
+|                          | precision | recall | f1-score | support |   |                           | precision | recall | f1-score | support |       |
+| none                     | 0.98      | 0.99   | 0.98     | 65477   |   | none                      | 0.98      | 0.99   | 0.98     | 227086  |       |
+| start of AT              | 0.70      | 0.68   | 0.69     | 4022    |   | start of AT               | 0.69      | 0.66   | 0.68     | 11416   |       |
+| mark of AT               | 0.83      | 0.61   | 0.70     | 2141    |   | mark of AT                | 0.78      | 0.67   | 0.72     | 4710    |       |
+| accuracy                 |           |        | 0.96     | 71640   |   |                           |           |        | 0.96     | 243212  | 71640 |
+| macro avg                | 0.83      | 0.76   | 0.79     | 71640   |   | macro avg                 | 0.82      | 0.77   | 0.79     | 243212  |       |
+| weighted avg             | 0.96      | 0.96   | 0.96     | 71640   |   | weighted avg              | 0.96      | 0.96   | 0.96     | 243212  |       |
 
 ## References:
 
