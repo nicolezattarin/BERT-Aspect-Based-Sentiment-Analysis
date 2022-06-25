@@ -80,8 +80,10 @@ Since we trained 8 different models, training has been performed separately and 
 
 ## Results:
 
-Best setup in terms of variance-bias tradeoff for Aspect-terms extraction is with adapter+scheduler, test on the left and train on the right.
+Best setup in terms of variance-bias tradeoff for Aspect-terms extraction is with adapter+scheduler:
 
+| TEST  |           |        |          |         |   | Train  |           |        |          |         |
+|--------------------------|-----------|--------|----------|---------|---|---------------------------|-----------|--------|----------|---------|
 |                          | precision | recall | f1-score | support |   |                           | precision | recall | f1-score | support |
 | none                     | 0.98      | 0.99   | 0.98     | 65477   |   | none                      | 0.98      | 0.99   | 0.98     | 227086  |
 | start of AT              | 0.70      | 0.68   | 0.69     | 4022    |   | start of AT               | 0.69      | 0.66   | 0.68     | 11416   |
