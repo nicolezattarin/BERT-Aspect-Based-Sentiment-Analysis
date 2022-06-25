@@ -39,6 +39,8 @@ Data are organized in a csv file, with the following columns:
 To solve the problems described above, we provide different strategies, all based on the fine-tuning of a pretrained BERT model [3], with the implementation provided by Hugging Face [4].
 BERT is a bidirectional transformer pretrained using a combination of masked language modeling objective and next sentence prediction, which can be adapted to a wide range of tasks, including sentiment analysis.
 
+**All trained models available [here](https://drive.google.com/drive/folders/1KiQxGk9d3qBKRLzMVLusQ1MhZMcRELqA?usp=sharing)**
+
 ### Architecture
 
 Both tasks are approached with two different BERT based approaches: a straighforward fine-tuning and an adapter, implementation provided by AdapterHub[5].
@@ -80,6 +82,7 @@ Since we trained 8 different models, training has been performed separately and 
 
 ## Results:
 
+#### Aspect term extraction
 Best setup in terms of variance-bias tradeoff for Aspect-terms extraction is with adapter+scheduler:
 
 | TEST  |           |        |          |         |   | Train  |           |        |          |         |
@@ -97,6 +100,28 @@ A visualization of the extracted terms follows:
 <p align="center">
   <img src="src/results_ABTE/adapter_extracted_terms_wordcloud.png" width="800" />
 </p>
+
+#### Aspect-based sentiment analysis
+
+Confusion matrices for the ABSA task are shown below:
+
+<p align="center">
+  <img src="src/results_ABTEsrc/results_ABSA/CMatrix_test.png" width="500" />
+</p>
+
+Example of sentence with aspect terms:
+
+> The review "they make the BEST spice tuna roll in town, and the asian salad is ok" 
+> w.r.t. the aspect "tuna" is positive
+
+> The review "the food is fantastic, but the prices were too high" 
+> w.r.t. the aspect "prices" is negative
+
+> The review "the food is fantastic, but the prices were too high" 
+> w.r.t. the aspect "food" is positive
+
+> The review "the chicken tastes like plastic, even tough they make the best " 
+> w.r.t. the aspect "chicken" is negative
 
 ## References:
 
@@ -118,4 +143,6 @@ A visualization of the extracted terms follows:
 
 ## Aknowledgements
 
-The general structure of the model (i.e. padding, dataset construction...) has been taken from [1], nevetheless we organized the model into a user-friendly class structure which provides a simple interface to the model. Moreover, we changes the optimization strategy, using AdamW instead of a generic Adam, introducing the learning rate scheduling and Adapter option as an alternative to fine-tuning.
+The general structure of the model (i.e. padding, dataset construction...) has been taken from [1], nevetheless we organized the model into a user-friendly class structure which provides a simple interface to the model. Moreover, we changed the optimization strategy, using AdamW instead of a generic Adam, introducing the learning rate scheduling and Adapter option as an alternative to fine-tuning.
+Finally, we add a detailed analysis of the model performance, including the study of the training history, confusion matrix and visualization
+
