@@ -6,7 +6,7 @@ Sentiment analysis, i.e. the analysis of the feeling expressed in a sentence, is
 
 Nevertheless, basic sentiment analysis attempt to detect the overall polarity of a sentence irrespective of the entities mentioned and their aspects. Therefore, a new task has been introduced: Aspect-based sentiment analysis (ABSA), a text analysis technique that categorizes data by aspect and identifies the sentiment attributed to each one. 
 
-In this notebook, we provide a possible solution to two steps of ABSA:
+In this repository, we provide a possible solution to two steps of ABSA:
 1. Aspect term extraction (ATE);
 2. Aspect-based sentiment analysis (ABSA).
 
@@ -17,7 +17,7 @@ A company could be interested in getting to know the major sentiment of the sent
 
 For example, the sentence "The food was delicious, but the prices were a bit high" has two different polarities to point out, each of which is attributed to a different aspect. Indeed, the sentiment concerning the **food** is positive, while the sentiment concerning the **prices** is negative, and both these informations could be separately interesting to a company.
 
-Thus, in order to extract such information, we need to first identify the aspects of the sentence, and then to extract the sentiment associated to each of them. These are the two separated tasks we are going to approach in this notebook.
+Thus, in order to extract such information, we need to first identify the aspects of the sentence, and then to extract the sentiment associated to each of them. These are the two separated tasks we are going to approach in this work.
 
 1. Aspect-based term extraction (ABTE): given sentence, identify all apect terms present in the sentence;
 2. Aspect-based sentiment analysis (ABSA): given sentence and an aspect term, identify the sentiment associated to that aspect term.
@@ -69,17 +69,31 @@ Moreover, we test both AdamW with a fixed learning rate and with a a learning ra
 
 Training is performed with a batch size of 8, and 5 epochs for all the cases, as suggested for BERT models. While ATE is trained with $3\,10^{-5}$ learing rate, ABSE is trained with $10^{-3}$ learning rate since the second approach shows a less stable trend.
 
-## Aknowledgements
-
-The general structure of the model (i.e. padding, dataset construction...) has been taken from [1], nevetheless we organized the model into a user-friendly class structure which provides a simple interface to the model. Moreover, we changes the optimization strategy, using AdamW instead of a generic Adam, introducing the learning rate scheduling and Adapter option as an alternative to fine-tuning.
 
 ## Overview
-The notebook is structured as follows:
+The main notebook is structured as follows:
 1. Text preprocessing and normalization;
 2. Aspect term extraction: training overview and comparison, testing, evaluation, and visualization;
 3. Aspect-based sentiment analysis:  training overview and comparison, testing, evaluation, and visualization.
 
-Since we trained 8 different models, training has been performed separately and loaded in the present notebook. Nevertheless, we show the process of training by means of a plot of the training loss.
+Since we trained 8 different models, training has been performed separately and loaded in the notebook. Nevertheless, we show the process of training by means of a plot of the training loss.
+
+## Results:
+
+Best setup in terms of variance-bias tradeoff for Aspect-terms extraction is with adapter+scheduler:
+
+TEST ADAPTER + SCHEDULER 						 TRAIN ADAPTER + SCHEDULER
+              precision    recall  f1-score   support 		               precision    recall  f1-score   support
+ 		 
+        none       0.98      0.99      0.98     65477 		         none       0.98      0.99      0.98    227086
+ start of AT       0.70      0.68      0.69      4022 		  start of AT       0.69      0.66      0.68     11416
+  mark of AT       0.83      0.61      0.70      2141 		   mark of AT       0.78      0.67      0.72      4710
+ 		 
+    accuracy                           0.96     71640 		     accuracy                           0.96    243212
+   macro avg       0.83      0.76      0.79     71640 		    macro avg       0.82      0.77      0.79    243212
+weighted avg       0.96      0.96      0.96     71640 		 weighted avg       0.96      0.96      0.96    243212
+ 		 
+ 		 
 
 ## References:
 
@@ -98,3 +112,7 @@ Since we trained 8 different models, training has been performed separately and 
 [7] Loshchilov Ilya, Hutter Frank, **Decoupled Weight Decay Regularization**, DOI: 10.48550/ARXIV.1711.05101
 
 [8] PyTorch: An Imperative Style, High-Performance Deep Learning Library}, Paszke Adam,  Gross Sam, Massa Francisco, Lerer Adamm, Bradbury James, Chanan Gregory, Killeen Trevor, Lin Zeming, Gimelshein Natalia, Antiga Luca, Desmaison Alban, Kopf Andreas, Yang Edward, DeVit Zachary, Raison Martin, Tejani Alykhan, Chilamkurthy Sasank, Steiner Benoit, Fang Lu, Bai Junjie, Chintala Soumith, http://papers.neurips.cc/paper/9015-pytorch-an-imperative-style-high-performance-deep-learning-library.pdf
+
+## Aknowledgements
+
+The general structure of the model (i.e. padding, dataset construction...) has been taken from [1], nevetheless we organized the model into a user-friendly class structure which provides a simple interface to the model. Moreover, we changes the optimization strategy, using AdamW instead of a generic Adam, introducing the learning rate scheduling and Adapter option as an alternative to fine-tuning.
