@@ -109,7 +109,7 @@ A visualization of the extracted terms follows:
 Confusion matrices for the ABSA task are shown below:
 
 <p align="center">
-  <img src="src/results_ABTEsrc/results_ABSA/CMatrix_test.png" width="500" />
+  <img src="src/results_ABSA/CMatrix_test.png" width="500" />
 </p>
 
 Example of sentence with aspect terms:
