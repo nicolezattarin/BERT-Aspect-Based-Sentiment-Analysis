@@ -1,5 +1,3 @@
-monkeylearn
-opendatasets
 contractions
 textblob
 spacy
