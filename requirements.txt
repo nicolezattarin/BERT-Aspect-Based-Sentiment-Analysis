@@ -14,3 +14,4 @@ tensorflow
 torch
 tqdm
 adapter-transformers
+itertools
